@@ -269,7 +269,8 @@ class Tarot:
                     yield event.plain_result(f"\n“属于你的占卜分析！”\n{interpretation}")
             else:
                 yield event.chain_result([Plain("回应是" + text), Image.fromFileSystem(img_path)])
-                yield event.plain_result(f"\n“属于你的占卜分析！”\n{interpretation}")
+                if self.is_ai_onetime:
+                    yield event.plain_result(f"\n“属于你的占卜分析！”\n{interpretation}")
         except Exception as e:
             logger.error(f"单张占卜出错: {str(e)}")
             yield event.plain_result(f"单张占卜失败: {str(e)}")
