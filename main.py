@@ -20,7 +20,10 @@ class Tarot:
         self.tarot_json: Path = Path(__file__).parent / "tarot.json"
         resource_path_str: str = config.get("resource_path", "resource")
         self.resource_path: Path = Path(__file__).parent / resource_path_str
-        self.is_chain_reply: bool = config.get("chain_reply", True)
+        self.is_chain_reply_divine: bool = config.get("chain_reply_divine", True)
+        self.is_chain_reply_onetime: bool = config.get("chain_reply_onetime", True)
+        self.is_ai_divine: bool = config.get("ai_divine", True)
+        self.is_ai_onetime: bool = config.get("ai_onetime", True)
         self.include_ai_in_chain: bool = config.get("include_ai_in_chain", False)
         
         os.makedirs(self.resource_path, exist_ok=True)
@@ -167,7 +170,7 @@ class Tarot:
             results = []
             group_id = event.get_group_id()
             is_group_chat = group_id is not None
-            if self.is_chain_reply and is_group_chat:
+            if self.is_chain_reply_divine and is_group_chat:
                 chain = Nodes([])
                 for i in range(cards_num):
                     header = f"切牌「{representations[i]}」\n" if (is_cut and i == cards_num - 1) else f"第{i+1}张牌「{representations[i]}」\n"
@@ -184,20 +187,21 @@ class Tarot:
                     chain.nodes.append(node)
                     results.append((header, text, img_path))
                 bot_name = self.context.get_config().get("nickname", "占卜师")
-                interpretation = await self._generate_ai_interpretation(formation_name, cards_info_list, representations, is_upright_list, user_input)
-                if self.include_ai_in_chain:
-                    ai_node = Node(
-                        uin=event.get_self_id(),
-                        name=bot_name,
-                        content=[Plain(f"\n“属于你的占卜分析！”\n{interpretation}")]
-                    )
-                    chain.nodes.append(ai_node)
+                if self.is_ai_divine:
+                    interpretation = await self._generate_ai_interpretation(formation_name, cards_info_list, representations, is_upright_list, user_input)
+                    if self.include_ai_in_chain:
+                        ai_node = Node(
+                            uin=event.get_self_id(),
+                            name=bot_name,
+                            content=[Plain(f"\n“属于你的占卜分析！”\n{interpretation}")]
+                        )
+                        chain.nodes.append(ai_node)
                 if not chain.nodes:
                     yield event.plain_result("无法生成塔罗牌结果，请稍后重试")
                     return
                 logger.info(f"群聊转发发送 {len(chain.nodes)} 张塔罗牌，AI 解析是否包含: {self.include_ai_in_chain}")
                 yield event.chain_result([chain])
-                if not self.include_ai_in_chain:
+                if self.is_ai_divine and not self.include_ai_in_chain:
                     yield event.plain_result(f"\n“属于你的占卜分析！”\n{interpretation}")
             else:
                 for i in range(cards_num):
@@ -212,8 +216,9 @@ class Tarot:
                     if i < cards_num - 1:
                         await asyncio.sleep(2)
                 bot_name = self.context.get_config().get("nickname", "占卜师")
-                interpretation = await self._generate_ai_interpretation(formation_name, cards_info_list, representations, is_upright_list, user_input)
-                yield event.plain_result(f"\n“属于你的占卜分析！”\n{interpretation}")
+                if self.is_ai_divine:
+                    interpretation = await self._generate_ai_interpretation(formation_name, cards_info_list, representations, is_upright_list, user_input)
+                    yield event.plain_result(f"\n“属于你的占卜分析！”\n{interpretation}")
         except Exception as e:
             logger.error(f"占卜过程出错: {str(e)}")
             yield event.plain_result(f"占卜失败: {str(e)}")
@@ -232,14 +237,15 @@ class Tarot:
                 yield event.plain_result(text)
                 return
             bot_name = self.context.get_config().get("nickname", "占卜师")
-            interpretation = await self._generate_ai_interpretation(
-                "单张牌占卜",
-                card_info_list,
-                ["当前情况"],
-                [is_upright],
-                user_input
-            )
-            if self.is_chain_reply and is_group_chat:
+            if self.is_chain_reply_onetime:
+                interpretation = await self._generate_ai_interpretation(
+                    "单张牌占卜",
+                    card_info_list,
+                    ["当前情况"],
+                    [is_upright],
+                    user_input
+                )
+            if self.is_chain_reply_onetime and is_group_chat:
                 chain = Nodes([])
                 node = Node(
                     uin=event.get_self_id(),
@@ -247,7 +253,7 @@ class Tarot:
                     content=[Plain("回应是" + text), Image.fromFileSystem(img_path)]
                 )
                 chain.nodes.append(node)
-                if self.include_ai_in_chain:
+                if self.is_ai_onetime and self.include_ai_in_chain:
                     ai_node = Node(
                         uin=event.get_self_id(),
                         name=bot_name,
@@ -259,7 +265,7 @@ class Tarot:
                     return
                 logger.info(f"单张占卜群聊转发发送 {len(chain.nodes)} 条消息，AI 解析是否包含: {self.include_ai_in_chain}")
                 yield event.chain_result([chain])
-                if not self.include_ai_in_chain:
+                if self.is_ai_onetime and not self.include_ai_in_chain:
                     yield event.plain_result(f"\n“属于你的占卜分析！”\n{interpretation}")
             else:
                 yield event.chain_result([Plain("回应是" + text), Image.fromFileSystem(img_path)])

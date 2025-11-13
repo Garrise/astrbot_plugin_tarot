@@ -1,8 +1,23 @@
 {
-  "chain_reply": {
+  "chain_reply_divine": {
     "type": "bool",
     "default": true,
-    "description": "是否启用群聊合并转发模式"
+    "description": "是否对牌阵占卜启用群聊合并转发模式"
+  },
+  "chain_reply_onetime": {
+    "type": "bool",
+    "default": true,
+    "description": "是否对单张牌启用群聊合并转发模式"
+  },
+  "ai_divine": {
+    "type": "bool",
+    "default": true,
+    "description": "是否对牌阵占卜启用AI解析"
+  },
+  "ai_onetime": {
+    "type": "bool",
+    "default": true,
+    "description": "是否对单张牌启用AI解析"
   },
   "resource_path": {
     "type": "string",
